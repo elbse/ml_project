@@ -1,0 +1,9 @@
+Model,Accuracy,Precision,Recall,F1-Score,AUC-ROC,False Negatives,False Positives
+Random Forest (RF),98.8,99.09,97.66,98.37,99.88,26,10
+Support Vector Machine (SVM),98.3,98.8,96.58,97.68,99.65,38,13
+k-Nearest Neighbour (KNN),98.14,98.09,96.85,97.47,99.61,35,21
+Naive Bayes (NB),70.18,55.45,98.38,70.92,76.97,18,879
+Multilayer Perceptron (MLP),98.97,98.83,98.38,98.6,99.78,18,13
+XGBoost (no SMOTE),98.74,99.27,97.3,98.27,99.87,30,8
+XGBoost (with SMOTE),98.77,98.73,97.93,98.33,99.87,23,14
+RF+XGBoost Soft Voting + SMOTE,98.9,99.36,97.66,98.5,99.93,26,7
