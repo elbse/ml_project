@@ -1,6 +1,0 @@
-Model,Palma et al. Accuracy,Our Accuracy,Deviation
-Random Forest (RF),79.14,73.97,-5.17
-Support Vector Machine (SVM),70.81,67.38,-3.43
-k-Nearest Neighbour (KNN),62.01,69.22,7.21
-Naive Bayes (NB),74.53,66.47,-8.06
-Multilayer Perceptron (MLP),78.12,70.26,-7.86
