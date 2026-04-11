@@ -1,0 +1,7 @@
+Model,Recall (None),Recall (SMOTE-Tomek),Recall Change,F1 (None),F1 (SMOTE-Tomek),F1 Change
+Random Forest (RF),71.39,70.26,-1.13,70.53,70.79,0.26
+Support Vector Machine (SVM),92.86,50.38,-42.48,75.05,61.79,-13.26
+k-Nearest Neighbour (KNN),70.77,66.43,-4.34,69.85,68.2,-1.65
+Naive Bayes (NB),98.84,99.09,0.25,75.71,75.79,0.08
+Multilayer Perceptron (MLP),72.65,61.68,-10.97,71.67,67.7,-3.97
+XGBoost,86.6,67.48,-19.12,75.47,72.07,-3.4
