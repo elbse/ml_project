@@ -1,8 +1,0 @@
-Model,Accuracy,Precision,Recall,F1-Score,AUC-ROC
-Random Forest (RF),73.97,79.27,82.37,80.79,79.67
-Support Vector Machine (SVM),67.38,67.97,96.29,79.69,73.11
-k-Nearest Neighbour (KNN),69.22,75.47,79.55,77.45,73.98
-Naive Bayes (NB),66.47,66.8,98.48,79.61,51.72
-Multilayer Perceptron (MLP),70.26,75.67,81.44,78.45,76.36
-Stacking Ensemble (RF + XGBoost),73.62,81.49,78.03,79.72,82.06
-Stacking Ensemble (tuned threshold),72.86,74.43,90.13,81.53,82.06

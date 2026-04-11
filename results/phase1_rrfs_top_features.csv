@@ -1,0 +1,21 @@
+Rank,Feature,Relevance
+1,Rating,0.15375693666769946
+2,Price,0.12760656612123933
+3,Your location : fine (GPS) location (D),0.09258862979738153
+4,Network communication : view network state (S),0.08764456545860215
+5,Your location : mock location sources for testing (D),0.08364618559113635
+6,Your personal information : write Browser's history and bookmarks (D),0.07282136400332964
+7,Services that cost you money : directly call phone numbers (D),0.059986345793021575
+8,Your location : access extra location provider commands (S),0.04842865487705834
+9,Network communication : full Internet access (D),0.045023734433513964
+10,Your personal information : read sensitive log data (D),0.0441804727255616
+11,System tools : set wallpaper (S),0.04415653187462214
+12,Safe permissions count,0.04298078373678581
+13,Hardware controls : take pictures and videos (D),0.04225463796754481
+14,Phone calls : read phone state and identity (D),0.04097718060166319
+15,Your accounts : discover known accounts (S),0.040935355879801585
+16,Your location : coarse (network-based) location (D),0.039032736462564645
+17,System tools : modify global system settings (D),0.035688078216085835
+18,System tools : send sticky broadcast (S),0.03446701488390752
+19,System tools : write sync settings (D),0.031026531877163387
+20,Default : delete applications (S),0.02963489632329658
