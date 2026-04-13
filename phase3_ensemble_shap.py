@@ -218,6 +218,9 @@ xgb_grid = GridSearchCV(
 )
 xgb_grid.fit(X_train_res, y_train_res)
 best_xgb = xgb_grid.best_estimator_
+# Fix shap + xgboost version incompatibility — base_score must be explicit float
+best_xgb.set_params(base_score=0.5)
+best_xgb.fit(X_train_res, y_train_res)
 print(f"    Best XGB params : {xgb_grid.best_params_}")
 print(f"    Best XGB F1 (CV): {xgb_grid.best_score_*100:.2f}%")
 
