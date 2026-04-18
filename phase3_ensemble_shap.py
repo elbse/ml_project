@@ -206,7 +206,10 @@ xgb_param_grid = {
 }
 xgb_grid = GridSearchCV(
     XGBClassifier(
+        objective="binary:logistic",
         eval_metric="logloss",
+        use_label_encoder=False,
+        base_score=0.5,
         random_state=RANDOM_STATE,
         n_jobs=-1,
     ),
@@ -217,9 +220,16 @@ xgb_grid = GridSearchCV(
     verbose=0,
 )
 xgb_grid.fit(X_train_res, y_train_res)
-best_xgb = xgb_grid.best_estimator_
-# Fix shap + xgboost version incompatibility — base_score must be explicit float
-best_xgb.set_params(base_score=0.5)
+# Rebuild XGBClassifier from best params to ensure sklearn compatibility
+best_xgb = XGBClassifier(
+    **xgb_grid.best_params_,
+    objective="binary:logistic",
+    eval_metric="logloss",
+    use_label_encoder=False,
+    base_score=0.5,
+    random_state=RANDOM_STATE,
+    n_jobs=-1,
+)
 best_xgb.fit(X_train_res, y_train_res)
 print(f"    Best XGB params : {xgb_grid.best_params_}")
 print(f"    Best XGB F1 (CV): {xgb_grid.best_score_*100:.2f}%")
@@ -274,7 +284,10 @@ cv_pipe = ImbPipeline([
             ("rf",  RandomForestClassifier(**rf_grid.best_params_,
                                            random_state=RANDOM_STATE, n_jobs=-1)),
             ("xgb", XGBClassifier(**xgb_grid.best_params_,
+                                   objective="binary:logistic",
                                    eval_metric="logloss",
+                                   use_label_encoder=False,
+                                   base_score=0.5,
                                    random_state=RANDOM_STATE, n_jobs=-1)),
         ],
         voting="soft",
