@@ -208,8 +208,6 @@ xgb_grid = GridSearchCV(
     XGBClassifier(
         objective="binary:logistic",
         eval_metric="logloss",
-        use_label_encoder=False,
-        base_score=0.5,
         random_state=RANDOM_STATE,
         n_jobs=-1,
     ),
@@ -225,8 +223,6 @@ best_xgb = XGBClassifier(
     **xgb_grid.best_params_,
     objective="binary:logistic",
     eval_metric="logloss",
-    use_label_encoder=False,
-    base_score=0.5,
     random_state=RANDOM_STATE,
     n_jobs=-1,
 )
@@ -286,8 +282,6 @@ cv_pipe = ImbPipeline([
             ("xgb", XGBClassifier(**xgb_grid.best_params_,
                                    objective="binary:logistic",
                                    eval_metric="logloss",
-                                   use_label_encoder=False,
-                                   base_score=0.5,
                                    random_state=RANDOM_STATE, n_jobs=-1)),
         ],
         voting="soft",
@@ -330,42 +324,93 @@ print("    Computing SHAP values for RF and XGBoost base learners ...")
 # Convert to DataFrame for SHAP
 X_test_df = pd.DataFrame(X_test_sc, columns=X.columns)
 
-# Use a sample of test set for speed (max 500 samples)
+# Sample test set (max 500) for speed
 shap_sample_size = min(500, len(X_test_df))
 np.random.seed(RANDOM_STATE)
 shap_idx    = np.random.choice(len(X_test_df), shap_sample_size, replace=False)
-X_shap      = X_test_df.iloc[shap_idx]
-y_shap      = y_test.iloc[shap_idx] if hasattr(y_test, 'iloc') else y_test[shap_idx]
+X_shap      = X_test_df.iloc[shap_idx].reset_index(drop=True)
+y_shap      = np.array(y_test)[shap_idx]
 y_pred_shap = ensemble.predict(X_shap)
-
 print(f"    SHAP sample size : {shap_sample_size} test instances")
 
-# --- RF SHAP -----------------------------------------------------------------
+# ---------------------------------------------------------------------------
+# RF SHAP
+# ---------------------------------------------------------------------------
 print("\n  Computing RF SHAP values ...")
-rf_explainer  = shap.TreeExplainer(best_rf)
-rf_shap_vals  = rf_explainer.shap_values(X_shap)
+rf_explainer = shap.TreeExplainer(best_rf)
+rf_shap_raw  = rf_explainer.shap_values(X_shap)
 
-# For binary classification, shap_values returns list [class0, class1]
-if isinstance(rf_shap_vals, list):
-    rf_shap_malware = rf_shap_vals[1]
+if isinstance(rf_shap_raw, list) and len(rf_shap_raw) == 2:
+    rf_shap_malware = np.array(rf_shap_raw[1])
+elif isinstance(rf_shap_raw, np.ndarray) and rf_shap_raw.ndim == 3:
+    rf_shap_malware = rf_shap_raw[:, :, 1]
 else:
-    rf_shap_malware = rf_shap_vals
+    rf_shap_malware = np.array(rf_shap_raw)
+print(f"    RF SHAP shape : {rf_shap_malware.shape}")
 
-# --- XGBoost SHAP ------------------------------------------------------------
+# ---------------------------------------------------------------------------
+# XGBoost SHAP — patch base_score string bug in XGBoost 3.x + SHAP 0.46+
+# Save model to JSON, patch base_score to plain float, reload
+# ---------------------------------------------------------------------------
 print("  Computing XGBoost SHAP values ...")
-xgb_explainer = shap.TreeExplainer(best_xgb)
-xgb_shap_vals = xgb_explainer.shap_values(X_shap)
+import json as _json
 
-# Average SHAP values from both models (ensemble-level explanation)
+tmp_path     = os.path.join(RESULTS_DIR, "_xgb_tmp.json")
+patched_path = os.path.join(RESULTS_DIR, "_xgb_patched.json")
+
+best_xgb.get_booster().save_model(tmp_path)
+
+with open(tmp_path, "r") as f:
+    model_json = _json.load(f)
+
+def patch_base_score(obj):
+    if isinstance(obj, dict):
+        for k in list(obj.keys()):
+            if k == "base_score":
+                try:
+                    obj[k] = str(float(str(obj[k]).strip("[]")))
+                except Exception:
+                    pass
+            else:
+                patch_base_score(obj[k])
+    elif isinstance(obj, list):
+        for item in obj:
+            patch_base_score(item)
+
+patch_base_score(model_json)
+
+with open(patched_path, "w") as f:
+    _json.dump(model_json, f)
+
+from xgboost import XGBClassifier as _XGBC
+xgb_patched = _XGBC(objective="binary:logistic", eval_metric="logloss",
+                    random_state=RANDOM_STATE, n_jobs=-1)
+xgb_patched.load_model(patched_path)
+
+xgb_explainer = shap.TreeExplainer(xgb_patched)
+xgb_shap_raw  = xgb_explainer.shap_values(X_shap)
+
+if isinstance(xgb_shap_raw, list) and len(xgb_shap_raw) == 2:
+    xgb_shap_vals = np.array(xgb_shap_raw[1])
+elif isinstance(xgb_shap_raw, np.ndarray) and xgb_shap_raw.ndim == 3:
+    xgb_shap_vals = xgb_shap_raw[:, :, 1]
+else:
+    xgb_shap_vals = np.array(xgb_shap_raw)
+print(f"    XGB SHAP shape : {xgb_shap_vals.shape}")
+
+for p in [tmp_path, patched_path]:
+    if os.path.exists(p):
+        os.remove(p)
+
+# Ensemble-level SHAP (average of RF and XGBoost)
 ensemble_shap = (rf_shap_malware + xgb_shap_vals) / 2
-
 print("  SHAP values computed successfully.")
 
 # --- Global feature importance (mean |SHAP|) ---------------------------------
 shap_importance = pd.DataFrame({
-    "Feature":    X.columns,
-    "RF_SHAP":    np.abs(rf_shap_malware).mean(axis=0),
-    "XGB_SHAP":   np.abs(xgb_shap_vals).mean(axis=0),
+    "Feature":       X.columns,
+    "RF_SHAP":       np.abs(rf_shap_malware).mean(axis=0),
+    "XGB_SHAP":      np.abs(xgb_shap_vals).mean(axis=0),
     "Ensemble_SHAP": np.abs(ensemble_shap).mean(axis=0),
 }).sort_values("Ensemble_SHAP", ascending=False)
 
@@ -373,18 +418,16 @@ shap_importance.to_csv(
     os.path.join(RESULTS_DIR, "phase3_shap_feature_importance.csv"), index=False
 )
 print(f"\n  Top 10 SHAP features (ensemble):")
-print(shap_importance[["Feature","Ensemble_SHAP"]].head(10).to_string(index=False))
+print(shap_importance[["Feature", "Ensemble_SHAP"]].head(10).to_string(index=False))
 
 # --- 7a. SHAP summary beeswarm plot ------------------------------------------
 print("\n  Generating SHAP summary beeswarm plot ...")
 plt.figure(figsize=(10, 8))
-shap.summary_plot(
-    ensemble_shap, X_shap,
-    feature_names=X.columns.tolist(),
-    show=False, max_display=20
-)
-plt.title("SHAP summary — ensemble (top 20 features)", fontsize=11,
-          fontweight="bold")
+shap.summary_plot(ensemble_shap, X_shap,
+                  feature_names=X.columns.tolist(),
+                  show=False, max_display=20)
+plt.title("SHAP summary - ensemble (top 20 features)",
+          fontsize=11, fontweight="bold")
 plt.tight_layout()
 plt.savefig(os.path.join(RESULTS_DIR, "shap_summary_beeswarm.png"),
             dpi=150, bbox_inches="tight")
@@ -393,58 +436,50 @@ plt.close()
 # --- 7b. SHAP feature importance bar chart -----------------------------------
 print("  Generating SHAP feature importance bar chart ...")
 plt.figure(figsize=(10, 8))
-shap.summary_plot(
-    ensemble_shap, X_shap,
-    feature_names=X.columns.tolist(),
-    plot_type="bar", show=False, max_display=20
-)
-plt.title("SHAP feature importance — ensemble (top 20)", fontsize=11,
-          fontweight="bold")
+shap.summary_plot(ensemble_shap, X_shap,
+                  feature_names=X.columns.tolist(),
+                  plot_type="bar", show=False, max_display=20)
+plt.title("SHAP feature importance - ensemble (top 20)",
+          fontsize=11, fontweight="bold")
 plt.tight_layout()
 plt.savefig(os.path.join(RESULTS_DIR, "shap_importance_bar.png"),
             dpi=150, bbox_inches="tight")
 plt.close()
 
 # =============================================================================
-#  8. SHAP LOCAL FORCE PLOTS (4 specific instances)
+#  8. SHAP LOCAL WATERFALL PLOTS (4 specific instances)
 # =============================================================================
 
-print("\n[7] Generating SHAP local force plots ...")
+print("\n[7] Generating SHAP local waterfall plots ...")
 
 y_shap_arr      = np.array(y_shap)
 y_pred_shap_arr = np.array(y_pred_shap)
 
-# Find indices for each case
-tp_idx = np.where((y_shap_arr == 1) & (y_pred_shap_arr == 1))[0]  # correct malware
-tn_idx = np.where((y_shap_arr == 0) & (y_pred_shap_arr == 0))[0]  # correct benign
-fn_idx = np.where((y_shap_arr == 1) & (y_pred_shap_arr == 0))[0]  # missed malware
-fp_idx = np.where((y_shap_arr == 0) & (y_pred_shap_arr == 1))[0]  # wrong flag
+tp_idx = np.where((y_shap_arr == 1) & (y_pred_shap_arr == 1))[0]
+tn_idx = np.where((y_shap_arr == 0) & (y_pred_shap_arr == 0))[0]
+fn_idx = np.where((y_shap_arr == 1) & (y_pred_shap_arr == 0))[0]
+fp_idx = np.where((y_shap_arr == 0) & (y_pred_shap_arr == 1))[0]
 
 cases = {
-    "tp_malware": (tp_idx, "True Positive — Malware correctly detected",
+    "tp_malware": (tp_idx, "True Positive - Malware correctly detected",
                    "shap_force_tp_malware.png"),
-    "tn_benign":  (tn_idx, "True Negative — Benign correctly identified",
+    "tn_benign":  (tn_idx, "True Negative - Benign correctly identified",
                    "shap_force_tp_benign.png"),
-    "fn":         (fn_idx, "False Negative — Malware MISSED by model",
+    "fn":         (fn_idx, "False Negative - Malware MISSED by model",
                    "shap_force_fn.png"),
-    "fp":         (fp_idx, "False Positive — Benign wrongly flagged",
+    "fp":         (fp_idx, "False Positive - Benign wrongly flagged",
                    "shap_force_fp.png"),
 }
 
-xgb_exp_obj = shap.TreeExplainer(best_xgb)
+xgb_explanation = xgb_explainer(X_shap)
 
 for case_name, (idx_arr, title, fname) in cases.items():
     if len(idx_arr) == 0:
-        print(f"    No {case_name} instances found in SHAP sample — skipping.")
+        print(f"    No {case_name} found in sample - skipping.")
         continue
     i = idx_arr[0]
-    instance = X_shap.iloc[[i]]
-
-    # Use waterfall plot (more readable than force plot in static PNG)
-    shap_vals_i = xgb_exp_obj(instance)
-
     plt.figure(figsize=(12, 5))
-    shap.waterfall_plot(shap_vals_i[0], max_display=15, show=False)
+    shap.plots.waterfall(xgb_explanation[i], max_display=15, show=False)
     plt.title(title, fontsize=10, fontweight="bold")
     plt.tight_layout()
     plt.savefig(os.path.join(RESULTS_DIR, fname),
