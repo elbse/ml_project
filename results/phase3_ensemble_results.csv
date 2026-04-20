@@ -1,0 +1,2 @@
+Model,Accuracy,Precision,Recall,F1-Score,AUC-ROC,False Negatives,False Positives,TP,TN,FP,FN
+RF+XGBoost Soft Voting Ensemble + SMOTE-Tomek,66.87,75.43,67.95,71.49,74.03,885,611,1876,1144,611,885

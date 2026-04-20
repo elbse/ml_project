@@ -349,58 +349,20 @@ else:
 print(f"    RF SHAP shape : {rf_shap_malware.shape}")
 
 # ---------------------------------------------------------------------------
-# XGBoost SHAP — patch base_score string bug in XGBoost 3.x + SHAP 0.46+
-# Save model to JSON, patch base_score to plain float, reload
+# XGBoost SHAP — use Explainer (not TreeExplainer) to bypass base_score bug
 # ---------------------------------------------------------------------------
 print("  Computing XGBoost SHAP values ...")
-import json as _json
 
-tmp_path     = os.path.join(RESULTS_DIR, "_xgb_tmp.json")
-patched_path = os.path.join(RESULTS_DIR, "_xgb_patched.json")
+# shap.Explainer auto-detects tree model and avoids the base_score parsing bug
+xgb_explainer  = shap.Explainer(best_xgb, X_shap)
+xgb_shap_obj   = xgb_explainer(X_shap)
 
-best_xgb.get_booster().save_model(tmp_path)
-
-with open(tmp_path, "r") as f:
-    model_json = _json.load(f)
-
-def patch_base_score(obj):
-    if isinstance(obj, dict):
-        for k in list(obj.keys()):
-            if k == "base_score":
-                try:
-                    obj[k] = str(float(str(obj[k]).strip("[]")))
-                except Exception:
-                    pass
-            else:
-                patch_base_score(obj[k])
-    elif isinstance(obj, list):
-        for item in obj:
-            patch_base_score(item)
-
-patch_base_score(model_json)
-
-with open(patched_path, "w") as f:
-    _json.dump(model_json, f)
-
-from xgboost import XGBClassifier as _XGBC
-xgb_patched = _XGBC(objective="binary:logistic", eval_metric="logloss",
-                    random_state=RANDOM_STATE, n_jobs=-1)
-xgb_patched.load_model(patched_path)
-
-xgb_explainer = shap.TreeExplainer(xgb_patched)
-xgb_shap_raw  = xgb_explainer.shap_values(X_shap)
-
-if isinstance(xgb_shap_raw, list) and len(xgb_shap_raw) == 2:
-    xgb_shap_vals = np.array(xgb_shap_raw[1])
-elif isinstance(xgb_shap_raw, np.ndarray) and xgb_shap_raw.ndim == 3:
-    xgb_shap_vals = xgb_shap_raw[:, :, 1]
-else:
-    xgb_shap_vals = np.array(xgb_shap_raw)
+# .values shape: (n_samples, n_features) for binary XGBoost
+xgb_shap_vals  = xgb_shap_obj.values
+if xgb_shap_vals.ndim == 3:
+    xgb_shap_vals = xgb_shap_vals[:, :, 1]
+xgb_shap_vals = np.array(xgb_shap_vals)
 print(f"    XGB SHAP shape : {xgb_shap_vals.shape}")
-
-for p in [tmp_path, patched_path]:
-    if os.path.exists(p):
-        os.remove(p)
 
 # Ensemble-level SHAP (average of RF and XGBoost)
 ensemble_shap = (rf_shap_malware + xgb_shap_vals) / 2
@@ -471,15 +433,13 @@ cases = {
                    "shap_force_fp.png"),
 }
 
-xgb_explanation = xgb_explainer(X_shap)
-
 for case_name, (idx_arr, title, fname) in cases.items():
     if len(idx_arr) == 0:
         print(f"    No {case_name} found in sample - skipping.")
         continue
     i = idx_arr[0]
     plt.figure(figsize=(12, 5))
-    shap.plots.waterfall(xgb_explanation[i], max_display=15, show=False)
+    shap.plots.waterfall(xgb_shap_obj[i], max_display=15, show=False)
     plt.title(title, fontsize=10, fontweight="bold")
     plt.tight_layout()
     plt.savefig(os.path.join(RESULTS_DIR, fname),

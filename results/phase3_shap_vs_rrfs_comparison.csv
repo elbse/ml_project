@@ -1,0 +1,21 @@
+Rank,SHAP Top Feature,RRFS Top Feature,In Both
+1,Price,Rating,Yes
+2,Number of ratings,Price,
+3,Your location : fine (GPS) location (D),Your location : fine (GPS) location (D),Yes
+4,Dangerous permissions count,Network communication : view network state (S),
+5,Rating,Your location : mock location sources for testing (D),Yes
+6,Network communication : view network state (S),Your personal information : write Browser's history and bookmarks (D),Yes
+7,Network communication : full Internet access (D),Services that cost you money : directly call phone numbers (D),Yes
+8,Safe permissions count,Your location : access extra location provider commands (S),Yes
+9,Hardware controls : control vibrator (S),Network communication : full Internet access (D),
+10,Phone calls : read phone state and identity (D),Your personal information : read sensitive log data (D),Yes
+11,Services that cost you money : directly call phone numbers (D),System tools : set wallpaper (S),Yes
+12,Network communication : view Wi-Fi state (S),Safe permissions count,
+13,System tools : set wallpaper (S),Hardware controls : take pictures and videos (D),Yes
+14,System tools : prevent device from sleeping (D),Phone calls : read phone state and identity (D),
+15,Storage : modify/delete USB storage contents modify/delete SD card contents (D),Your accounts : discover known accounts (S),
+16,Your location : coarse (network-based) location (D),Your location : coarse (network-based) location (D),Yes
+17,Your location : mock location sources for testing (D),System tools : modify global system settings (D),Yes
+18,System tools : automatically start at boot (S),System tools : send sticky broadcast (S),
+19,System tools : modify global system settings (D),System tools : write sync settings (D),Yes
+20,Your personal information : write Browser's history and bookmarks (D),Default : delete applications (S),Yes

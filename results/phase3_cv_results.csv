@@ -1,6 +1,6 @@
 Metric,Mean (%),Std (%)
-accuracy,65.74,0.59
-precision,72.5,0.51
-recall,70.82,0.94
-f1,71.65,0.57
-roc_auc,72.9,0.75
+accuracy,65.65,0.61
+precision,72.45,0.63
+recall,70.69,0.75
+f1,71.55,0.5
+roc_auc,72.91,0.69
