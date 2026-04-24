@@ -40,12 +40,12 @@ np.random.seed(42)
 #  CONFIGURATION
 # =============================================================================
 
-DATASET_PATH = "dataset.csv"
-TARGET_COL   = "Class"
-DROP_COLS    = ["App", "Package", "Category", "Description", "Related apps"]
+DATASET_PATH = "dataset_cicandmal2017.csv"
+TARGET_COL   = "Label"
+DROP_COLS    = []
 TEST_SIZE    = 0.2
 RANDOM_STATE = 42
-RESULTS_DIR  = "results"
+RESULTS_DIR  = "results_cicandmal"
 
 os.makedirs(RESULTS_DIR, exist_ok=True)
 
