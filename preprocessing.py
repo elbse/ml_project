@@ -1,301 +1,233 @@
-# ============================================================
-# FILE: preprocessing.py
-# ============================================================
+# =============================================================================
+#  CICMalAnal2017 — Dataset Merger & Preprocessor
+#  Merges all category CSVs into one clean dataset_cicandmal2017.csv
+#  Structure expected:
+#    CICMalAnal2017/
+#      Benign-CSVs/Benign/       -> Label 0
+#      Adware-CSVs/Adware/       -> Label 1
+#      Ransomware-CSVs/Ransomware/ -> Label 1
+#      Scareware-CSVs/Scareware/ -> Label 1
+#      SMSmalware-CSVs/SMSmalware/ -> Label 1
+# =============================================================================
+
+import os
 import pandas as pd
 import numpy as np
-import matplotlib.pyplot as plt
-import matplotlib.gridspec as gridspec
-import seaborn as sns
-from sklearn.preprocessing import MinMaxScaler
-from sklearn.model_selection import train_test_split
-from ucimlrepo import fetch_ucirepo
 
-# ── Global plot style ────────────────────────────────────────
-sns.set_theme(style="whitegrid", palette="muted")
-plt.rcParams.update({"figure.dpi": 130, "figure.facecolor": "white"})
+# =============================================================================
+#  CONFIGURATION — update BASE_DIR if your folder is in a different location
+# =============================================================================
 
+BASE_DIR    = "CICMalAnal2017"       # folder in your project root
+OUTPUT_FILE = "dataset_cicandmal2017.csv"
 
-# ============================================================
-# VISUALIZATION FUNCTIONS
-# ============================================================
+# Map each subfolder path to its label (0 = Benign, 1 = Malware)
+CATEGORY_MAP = {
+    os.path.join(BASE_DIR, "Benign-CSVs",     "Benign"):     0,
+    os.path.join(BASE_DIR, "Adware-CSVs",     "Adware"):     1,
+    os.path.join(BASE_DIR, "Ransomware-CSVs", "Ransomware"): 1,
+    os.path.join(BASE_DIR, "Scareware-CSVs",  "Scareware"):  1,
+    os.path.join(BASE_DIR, "SMSmalware-CSVs", "SMSmalware"): 1,
+}
 
-def plot_class_distribution(y_raw, y_remapped):
-    """Bar charts showing label distribution before and after remapping."""
-    fig, axes = plt.subplots(1, 2, figsize=(10, 4))
-    fig.suptitle("Class Distribution", fontsize=14, fontweight="bold")
+def find_all_csvs(folder):
+    """Recursively find all CSV files under a folder."""
+    csv_paths = []
+    for root, dirs, files in os.walk(folder):
+        for f in files:
+            if f.endswith(".csv"):
+                csv_paths.append(os.path.join(root, f))
+    return csv_paths
 
-    # Before remapping
-    raw_counts = y_raw.value_counts().sort_index()
-    axes[0].bar(raw_counts.index.astype(str), raw_counts.values,
-                color=["#4C72B0", "#DD8452"], edgecolor="white", width=0.5)
-    axes[0].set_title("Raw Labels (from UCI)")
-    axes[0].set_xlabel("Label Value")
-    axes[0].set_ylabel("Count")
-    for i, v in enumerate(raw_counts.values):
-        axes[0].text(i, v + 50, str(v), ha="center", fontweight="bold")
+# =============================================================================
+#  1. LOAD AND MERGE
+# =============================================================================
 
-    # After remapping
-    remap_counts = y_remapped.value_counts().sort_index()
-    labels = [f"{idx} ({'Legitimate' if idx == 0 else 'Phishing'})"
-              for idx in remap_counts.index]
-    axes[1].bar(labels, remap_counts.values,
-                color=["#4C72B0", "#DD8452"], edgecolor="white", width=0.5)
-    axes[1].set_title("Remapped Labels (0=Legit, 1=Phishing)")
-    axes[1].set_xlabel("Label")
-    axes[1].set_ylabel("Count")
-    for i, v in enumerate(remap_counts.values):
-        axes[1].text(i, v + 50, str(v), ha="center", fontweight="bold")
+print("=" * 65)
+print("  CICMalAnal2017 — Dataset Merger")
+print("=" * 65)
 
-    plt.tight_layout()
-    plt.savefig("01_class_distribution.png", bbox_inches="tight")
-    plt.show()
-    print("  Saved → 01_class_distribution.png")
+all_dfs = []
 
+for folder_path, label in CATEGORY_MAP.items():
+    category = os.path.basename(folder_path)
+    label_str = "Benign" if label == 0 else "Malware"
 
-def plot_feature_distributions(X: pd.DataFrame):
-    """
-    Grid of histograms for all 31 features.
-    Shows the -1 / 0 / 1 ternary nature of UCI features.
-    """
-    n_features = X.shape[1]
-    n_cols = 4
-    n_rows = int(np.ceil(n_features / n_cols))
+    if not os.path.exists(folder_path):
+        print(f"\n  WARNING: Folder not found — {folder_path}")
+        print(f"           Check that BASE_DIR is correct.")
+        continue
 
-    fig, axes = plt.subplots(n_rows, n_cols,
-                             figsize=(n_cols * 4, n_rows * 2.8))
-    fig.suptitle("Feature Value Distributions (All 31 Features)",
-                 fontsize=14, fontweight="bold", y=1.01)
-    axes_flat = axes.flatten()
+    csv_files = [f for f in os.listdir(folder_path)
+                 if f.endswith(".csv")]
 
-    for i, col in enumerate(X.columns):
-        counts = X[col].value_counts().sort_index()
-        axes_flat[i].bar(counts.index.astype(str), counts.values,
-                         color="#4C72B0", edgecolor="white")
-        axes_flat[i].set_title(col, fontsize=8, fontweight="bold")
-        axes_flat[i].set_xlabel("Value", fontsize=7)
-        axes_flat[i].set_ylabel("Count", fontsize=7)
-        axes_flat[i].tick_params(labelsize=7)
+    if not csv_files:
+        print(f"\n  WARNING: No CSV files found in {folder_path}")
+        continue
 
-    # Hide any unused subplots
-    for j in range(i + 1, len(axes_flat)):
-        axes_flat[j].set_visible(False)
+    print(f"\n  Loading {category} ({label_str}) — {len(csv_files)} file(s) ...")
 
-    plt.tight_layout()
-    plt.savefig("02_feature_distributions.png", bbox_inches="tight")
-    plt.show()
-    print("  Saved → 02_feature_distributions.png")
+    cat_dfs = []
+    for fname in csv_files:
+        fpath = os.path.join(folder_path, fname)
+        try:
+            df = pd.read_csv(fpath, low_memory=False)
+            cat_dfs.append(df)
+        except Exception as e:
+            print(f"    Skipping {fname}: {e}")
 
+    if not cat_dfs:
+        continue
 
-def plot_correlation_heatmap(X: pd.DataFrame):
-    """Pearson correlation heatmap of all 31 features."""
-    fig, ax = plt.subplots(figsize=(14, 11))
-    corr = X.corr()
+    cat_df = pd.concat(cat_dfs, ignore_index=True)
+    cat_df["Label"] = label
+    cat_df["Category"] = category
+    all_dfs.append(cat_df)
 
-    mask = np.triu(np.ones_like(corr, dtype=bool))   # upper triangle mask
-    sns.heatmap(
-        corr,
-        mask=mask,
-        annot=False,
-        cmap="coolwarm",
-        center=0,
-        vmin=-1, vmax=1,
-        linewidths=0.4,
-        linecolor="white",
-        cbar_kws={"shrink": 0.8, "label": "Pearson r"},
-        ax=ax
-    )
-    ax.set_title("Feature Correlation Matrix (Lower Triangle)",
-                 fontsize=13, fontweight="bold", pad=15)
-    ax.tick_params(axis="x", rotation=90, labelsize=7)
-    ax.tick_params(axis="y", rotation=0,  labelsize=7)
+    print(f"    Rows loaded : {len(cat_df)}")
+    print(f"    Columns     : {len(cat_df.columns)}")
 
-    plt.tight_layout()
-    plt.savefig("03_correlation_heatmap.png", bbox_inches="tight")
-    plt.show()
-    print("  Saved → 03_correlation_heatmap.png")
+# =============================================================================
+#  2. COMBINE ALL CATEGORIES
+# =============================================================================
 
+print("\n\n[2] Combining all categories ...")
+combined = pd.concat(all_dfs, ignore_index=True)
+print(f"    Combined shape : {combined.shape}")
 
-def plot_feature_vs_label(X: pd.DataFrame, y: pd.Series):
-    """
-    Stacked bar chart per feature showing value distribution
-    split by class (Legitimate vs Phishing).
-    Helps identify discriminative features visually.
-    """
-    df = X.copy()
-    df["label"] = y.values
+# =============================================================================
+#  3. ALIGN COLUMNS
+#  Different category CSVs may have slightly different columns
+#  Keep only columns common to ALL categories
+# =============================================================================
 
-    n_features = X.shape[1]
-    n_cols = 4
-    n_rows = int(np.ceil(n_features / n_cols))
+print("\n[3] Aligning columns across categories ...")
 
-    fig, axes = plt.subplots(n_rows, n_cols,
-                             figsize=(n_cols * 4, n_rows * 3))
-    fig.suptitle("Feature Values by Class (Legitimate vs Phishing)",
-                 fontsize=14, fontweight="bold", y=1.01)
-    axes_flat = axes.flatten()
+# Identify columns to drop (non-feature metadata)
+drop_candidates = ["Category", "Flow ID", "Source IP", "Destination IP",
+                   "Timestamp", "src_ip", "dst_ip", "Flow.ID",
+                   "Source.IP", "Destination.IP"]
 
-    for i, col in enumerate(X.columns):
-        ct = df.groupby([col, "label"]).size().unstack(fill_value=0)
-        ct.columns = ["Legitimate" if c == 0 else "Phishing"
-                      for c in ct.columns]
-        ct.plot(kind="bar", ax=axes_flat[i], color=["#4C72B0", "#DD8452"],
-                edgecolor="white", width=0.6)
-        axes_flat[i].set_title(col, fontsize=8, fontweight="bold")
-        axes_flat[i].set_xlabel("Feature Value", fontsize=7)
-        axes_flat[i].set_ylabel("Count", fontsize=7)
-        axes_flat[i].tick_params(labelsize=7)
-        axes_flat[i].get_legend().remove()
-        axes_flat[i].tick_params(axis="x", rotation=0)
+# Drop metadata columns if present
+meta_dropped = [c for c in drop_candidates if c in combined.columns]
+if meta_dropped:
+    combined.drop(columns=meta_dropped, inplace=True)
+    print(f"    Dropped metadata columns: {meta_dropped}")
 
-    # Shared legend
-    handles = [
-        plt.Rectangle((0,0),1,1, color="#4C72B0", label="Legitimate"),
-        plt.Rectangle((0,0),1,1, color="#DD8452", label="Phishing")
-    ]
-    fig.legend(handles=handles, loc="upper right",
-               fontsize=9, title="Class", framealpha=0.9)
+# Keep Label column separate
+label_col = combined["Label"].copy()
+category_col = combined.get("Category", None)
 
-    for j in range(i + 1, len(axes_flat)):
-        axes_flat[j].set_visible(False)
+# Select only numeric feature columns (exclude Label)
+feature_cols = [c for c in combined.columns
+                if c not in ["Label", "Category"]]
+X = combined[feature_cols].copy()
 
-    plt.tight_layout()
-    plt.savefig("04_feature_vs_label.png", bbox_inches="tight")
-    plt.show()
-    print("  Saved → 04_feature_vs_label.png")
+# Coerce all feature columns to numeric
+print("    Coercing all features to numeric ...")
+for col in X.columns:
+    X[col] = pd.to_numeric(X[col], errors="coerce")
 
+# Reassemble
+combined = X.copy()
+combined["Label"] = label_col.values
 
-def plot_scaling_effect(X_raw: pd.DataFrame,
-                        X_train_scaled: np.ndarray,
-                        feature_names: list):
-    """
-    Side-by-side comparison of 6 sample features before and after MinMax scaling.
-    Demonstrates the preprocessing step visually.
-    """
-    sample_features = feature_names[:6]
-    sample_idx      = [feature_names.index(f) for f in sample_features]
+print(f"    Final shape    : {combined.shape}")
 
-    fig, axes = plt.subplots(2, 6, figsize=(18, 6))
-    fig.suptitle("MinMax Scaling Effect — Sample of 6 Features",
-                 fontsize=13, fontweight="bold")
+# =============================================================================
+#  4. BASIC CLEANING
+# =============================================================================
 
-    for col_i, (feat, idx) in enumerate(zip(sample_features, sample_idx)):
-        # Before scaling
-        axes[0, col_i].hist(X_raw.iloc[:, idx], bins=5,
-                            color="#4C72B0", edgecolor="white")
-        axes[0, col_i].set_title(feat, fontsize=7, fontweight="bold")
-        if col_i == 0:
-            axes[0, col_i].set_ylabel("Before Scaling", fontsize=9,
-                                       fontweight="bold", color="#4C72B0")
+print("\n[4] Cleaning dataset ...")
 
-        # After scaling
-        axes[1, col_i].hist(X_train_scaled[:, idx], bins=10,
-                            color="#55A868", edgecolor="white")
-        if col_i == 0:
-            axes[1, col_i].set_ylabel("After MinMax Scaling", fontsize=9,
-                                       fontweight="bold", color="#55A868")
+# Replace infinite values with NaN
+combined.replace([np.inf, -np.inf], np.nan, inplace=True)
+print(f"    Infinite values replaced with NaN")
 
-    for ax in axes.flatten():
-        ax.tick_params(labelsize=7)
+# Report missing values before filling
+missing_pct = combined.isnull().mean().mean() * 100
+print(f"    Missing value % (before fill): {missing_pct:.2f}%")
 
-    plt.tight_layout()
-    plt.savefig("05_scaling_effect.png", bbox_inches="tight")
-    plt.show()
-    print("  Saved → 05_scaling_effect.png")
+# Fill missing values with column medians
+numeric_cols = combined.select_dtypes(include=[np.number]).columns.tolist()
+combined[numeric_cols] = combined[numeric_cols].fillna(
+    combined[numeric_cols].median()
+)
 
+# Remove duplicate rows
+before = len(combined)
+combined.drop_duplicates(inplace=True)
+print(f"    Duplicates removed : {before - len(combined)}")
 
-def plot_train_test_split(y_train: pd.Series, y_test: pd.Series):
-    """Grouped bar chart confirming stratified split balance."""
-    fig, axes = plt.subplots(1, 2, figsize=(10, 4))
-    fig.suptitle("Train / Test Split — Class Balance Check",
-                 fontsize=13, fontweight="bold")
+print(f"    Final shape        : {combined.shape}")
 
-    for ax, (split_name, split_y) in zip(
-            axes, [("Training Set (80%)", y_train),
-                   ("Test Set (20%)",     y_test)]):
-        counts = split_y.value_counts().sort_index()
-        bars = ax.bar(
-            ["Legitimate\n(0)", "Phishing\n(1)"],
-            counts.values,
-            color=["#4C72B0", "#DD8452"],
-            edgecolor="white", width=0.5
-        )
-        ax.set_title(split_name, fontweight="bold")
-        ax.set_ylabel("Sample Count")
-        total = counts.sum()
-        for bar, v in zip(bars, counts.values):
-            ax.text(bar.get_x() + bar.get_width() / 2,
-                    v + 30, f"{v}\n({v/total*100:.1f}%)",
-                    ha="center", va="bottom", fontsize=9, fontweight="bold")
-        ax.set_ylim(0, counts.max() * 1.2)
+# =============================================================================
+#  5. CLASS DISTRIBUTION
+# =============================================================================
 
-    plt.tight_layout()
-    plt.savefig("06_train_test_split.png", bbox_inches="tight")
-    plt.show()
-    print("  Saved → 06_train_test_split.png")
+print("\n[5] Class distribution ...")
+vc = combined["Label"].value_counts().sort_index()
+for cls, cnt in vc.items():
+    label_str = "Benign" if cls == 0 else "Malware"
+    print(f"    {label_str} ({cls}) : {cnt}  ({cnt/len(combined)*100:.1f}%)")
 
+n_benign  = int(vc.get(0, 0))
+n_malware = int(vc.get(1, 0))
+ratio     = n_benign / n_malware if n_malware > 0 else 0
+print(f"    Imbalance ratio : {ratio:.1f}:1  (benign:malware)")
+print(f"\n    Expected from Palma et al.: ~12:1 (5,065 benign : 426 malware)")
 
-# ============================================================
-# MAIN PIPELINE
-# ============================================================
+if ratio >= 8:
+    print("    ✓ Imbalance ratio matches expected range — correct dataset!")
+else:
+    print("    ⚠ Ratio differs from expected. Check if all folders loaded.")
 
-def load_and_preprocess():
-    print("=" * 55)
-    print("  PHISHING DATASET — PREPROCESSING PIPELINE")
-    print("=" * 55)
+# =============================================================================
+#  6. COLUMN NAME CLEANUP
+# =============================================================================
 
-    # ── 1. Fetch ─────────────────────────────────────────────
-    print("\n[1/5] Fetching dataset from UCI ML Repository...")
-    phishing_websites = fetch_ucirepo(id=327)
-    X = phishing_websites.data.features
-    y_raw = phishing_websites.data.targets.squeeze()
+print("\n[6] Cleaning column names ...")
 
-    print(f"      Raw label values    : {sorted(y_raw.unique())}")
-    print(f"      Raw class counts    :\n{y_raw.value_counts()}")
+# Strip whitespace and special characters from column names
+combined.columns = (
+    combined.columns
+    .str.strip()
+    .str.replace(r"[^\w\s]", "", regex=True)
+    .str.replace(r"\s+", "_", regex=True)
+)
 
-    # ── 2. Remap labels ──────────────────────────────────────
-    print("\n[2/5] Remapping labels...")
-    if set(y_raw.unique()) == {1, -1}:
-        y = y_raw.map({1: 0, -1: 1})
-    elif set(y_raw.unique()) == {1, 0}:
-        y = y_raw.copy()
-    else:
-        raise ValueError(f"Unexpected label values: {y_raw.unique()}")
+print(f"    Sample columns: {list(combined.columns[:5])}")
+print(f"    Target column : {combined.columns[-1]}")
 
-    # ── 3. Sanity checks ─────────────────────────────────────
-    print(f"\n[3/5] Dataset summary:")
-    print(f"      Shape            : {X.shape}")
-    print(f"      Missing values   : {X.isnull().sum().sum()}")
-    print(f"      Remapped counts  :\n{y.value_counts()}")
+# =============================================================================
+#  7. SAVE
+# =============================================================================
 
-    # ── 4. Split → Scale ─────────────────────────────────────
-    print("\n[4/5] Splitting (80/20 stratified) and scaling...")
-    X_train, X_test, y_train, y_test = train_test_split(
-        X, y, test_size=0.20, random_state=42, stratify=y
-    )
-    scaler = MinMaxScaler()
-    X_train_scaled = scaler.fit_transform(X_train)
-    X_test_scaled  = scaler.transform(X_test)
+print(f"\n[7] Saving to {OUTPUT_FILE} ...")
+combined.to_csv(OUTPUT_FILE, index=False)
+print(f"    Saved {len(combined)} rows × {len(combined.columns)} columns")
+print(f"    File: {os.path.abspath(OUTPUT_FILE)}")
 
-    print(f"      Train : {X_train_scaled.shape[0]} samples")
-    print(f"      Test  : {X_test_scaled.shape[0]} samples")
+# =============================================================================
+#  8. SUMMARY
+# =============================================================================
 
-    # ── 5. Visualizations ────────────────────────────────────
-    print("\n[5/5] Generating visualizations...")
-    feature_names = list(X.columns)
+print("\n\n" + "=" * 65)
+print("  MERGE COMPLETE")
+print("=" * 65)
+print(f"""
+  Output file    : {OUTPUT_FILE}
+  Total samples  : {len(combined)}
+  Total features : {len(combined.columns) - 1}
+  Benign         : {n_benign}
+  Malware        : {n_malware}
+  Imbalance      : {ratio:.1f}:1
 
-    plot_class_distribution(y_raw, y)
-    plot_feature_distributions(X)
-    plot_correlation_heatmap(X)
-    plot_feature_vs_label(X, y)
-    plot_scaling_effect(X, X_train_scaled, feature_names)
-    plot_train_test_split(y_train, y_test)
-
-    print("\n" + "=" * 55)
-    print("  PREPROCESSING COMPLETE")
-    print("=" * 55)
-
-    return X_train_scaled, X_test_scaled, y_train, y_test, scaler, feature_names
-
-
-if __name__ == "__main__":
-    X_train, X_test, y_train, y_test, scaler, feature_names = load_and_preprocess()
+  Next step:
+    Update DATASET_PATH in phase1_baseline.py:
+      DATASET_PATH = "{OUTPUT_FILE}"
+      TARGET_COL   = "Label"
+      DROP_COLS    = []
+""")
+print("=" * 65)
+print("  Done.\n")
