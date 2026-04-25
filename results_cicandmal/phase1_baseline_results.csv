@@ -1,0 +1,6 @@
+Model,Accuracy,Precision,Recall,F1-Score,AUC-ROC,False Negatives,False Positives
+Random Forest (RF),92.08,33.33,2.35,4.4,58.33,83,4
+Support Vector Machine (SVM),92.27,0.0,0.0,0.0,50.89,85,0
+k-Nearest Neighbour (KNN),92.27,50.0,1.18,2.3,53.98,84,1
+Naive Bayes (NB),12.56,7.72,94.12,14.27,49.03,5,956
+Multilayer Perceptron (MLP),90.17,12.9,4.71,6.9,48.13,81,27

@@ -1,0 +1,21 @@
+Rank,SHAP Top Feature,RRFS Top Feature,In Both
+1,Flow_IAT_Mean,FIN_Flag_Count,
+2,Flow_Packetss,ACK_Flag_Count,
+3,Fwd_Packetss,URG_Flag_Count,Yes
+4,Source_Port,Protocol,
+5,Flow_IAT_Min,Active_Max,
+6,Bwd_Packetss,Fwd_Packetss,
+7,Flow_Duration,Active_Min,Yes
+8,Flow_IAT_Max,Subflow_Fwd_Packets,
+9,Flow_Bytess,Min_Packet_Length,
+10,min_seg_size_forward,Subflow_Fwd_Bytes,
+11,Fwd_IAT_Std,Fwd_IAT_Total,Yes
+12,Destination_Port,Init_Win_bytes_backward,
+13,Bwd_Header_Length,Fwd_IAT_Std,
+14,Init_Win_bytes_backward,act_data_pkt_fwd,Yes
+15,Total_Fwd_Packets,SYN_Flag_Count,
+16,Init_Win_bytes_forward,Bwd_IAT_Min,
+17,Packet_Length_Variance,Idle_Mean,
+18,Fwd_IAT_Mean,Bwd_IAT_Std,
+19,Fwd_IAT_Min,Flow_Duration,
+20,Avg_Fwd_Segment_Size,Bwd_IAT_Total,

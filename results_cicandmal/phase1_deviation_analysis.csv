@@ -1,0 +1,6 @@
+Model,Palma et al. Accuracy,Our Accuracy,Deviation,Notes
+Random Forest (RF),79.14,92.08,12.94,Different dataset version / feature set
+Support Vector Machine (SVM),70.81,92.27,21.46,Different dataset version / feature set
+k-Nearest Neighbour (KNN),62.01,92.27,30.26,Different dataset version / feature set
+Naive Bayes (NB),74.53,12.56,-61.97,Different dataset version / feature set
+Multilayer Perceptron (MLP),78.12,90.17,12.05,Different dataset version / feature set
