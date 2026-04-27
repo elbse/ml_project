@@ -38,12 +38,12 @@ np.random.seed(42)
 # =============================================================================
 
 DATASET_PATH = "dataset_cicandmal2017.csv"
-TARGET_COL   = "Label"
+TARGET_COL   = "Label"              # 1 = Malware, 0 = Benign
 DROP_COLS    = []
 TEST_SIZE    = 0.2
 RANDOM_STATE = 42
 RESULTS_DIR  = "results_cicandmal"
-RRFS_TOP_N   = 20           # number of top features to keep via RRFS
+RRFS_TOP_N   = 20               # number of top features to keep via RRFS
 
 os.makedirs(RESULTS_DIR, exist_ok=True)
 

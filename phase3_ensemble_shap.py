@@ -42,13 +42,13 @@ np.random.seed(42)
 #  CONFIGURATION
 # =============================================================================
 
-DATASET_PATH = "dataset.csv"
-TARGET_COL   = "Class"
-DROP_COLS    = ["App", "Package", "Category", "Description", "Related apps"]
+DATASET_PATH = "dataset_cicandmal2017.csv"
+TARGET_COL   = "Label"
+DROP_COLS    = []
 TEST_SIZE    = 0.2
 RANDOM_STATE = 42
 CV_FOLDS     = 5
-RESULTS_DIR  = "results"
+RESULTS_DIR  = "results_cicandmal"
 
 os.makedirs(RESULTS_DIR, exist_ok=True)
 
@@ -338,7 +338,7 @@ print(f"    SHAP sample size : {shap_sample_size} test instances")
 # ---------------------------------------------------------------------------
 print("\n  Computing RF SHAP values ...")
 rf_explainer = shap.TreeExplainer(best_rf)
-rf_shap_raw  = rf_explainer.shap_values(X_shap)
+rf_shap_raw  = rf_explainer.shap_values(X_shap, check_additivity=False)
 
 if isinstance(rf_shap_raw, list) and len(rf_shap_raw) == 2:
     rf_shap_malware = np.array(rf_shap_raw[1])
@@ -355,7 +355,7 @@ print("  Computing XGBoost SHAP values ...")
 
 # shap.Explainer auto-detects tree model and avoids the base_score parsing bug
 xgb_explainer  = shap.Explainer(best_xgb, X_shap)
-xgb_shap_obj   = xgb_explainer(X_shap)
+xgb_shap_obj   = xgb_explainer(X_shap, check_additivity=False)
 
 # .values shape: (n_samples, n_features) for binary XGBoost
 xgb_shap_vals  = xgb_shap_obj.values
