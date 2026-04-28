@@ -50,9 +50,9 @@ notebooks/malware_detection.ipynb
 ├── notebooks/             # Colab experiments
 ├── src/
 │   ├── preprocess.py      # Cleaning, normalization, train-test split
-│   ├── phase1_smote_tomek.py      # SMOTE-Tomek
-│   ├── models.py          # RF, XGBoost, ensemble
-│   └── explainability.py  # SHAP plots
+│   ├── phase1_baseline.py      # SMOTE-Tomek
+│   ├── phase2_smote_tomek.py          # RF, XGBoost, ensemble
+│   └── phase3_ensemble_shap.py  # SHAP plots
 ├── results/               # Confusion matrices, SHAP figures
 └── main.py
 ````
